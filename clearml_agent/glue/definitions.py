@@ -43,3 +43,8 @@ Defaults to 0 (delete as soon as the cleanup loop sees them). When set to a posi
 checks the actual completion time (container terminated.finishedAt for pods, status.completionTime for jobs)
 and skips deletion until at least this many minutes have elapsed since completion.
 """
+
+ENV_LOG_POD_STATUS_BEFORE_DELETING = EnvEntry("K8S_GLUE_LOG_POD_STATUS_BEFORE_DELETING", default=False, converter=bool)
+"""
+If True, log pod status and exit code before deleting it.
+"""

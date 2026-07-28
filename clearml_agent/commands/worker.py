@@ -2689,7 +2689,7 @@ class Worker(ServiceCommandSection):
     ):
         if not task_id:
             raise CommandFailedError("Worker build must have valid task id")
-        
+
         if target and not os.path.isabs(target):
             # Non absolute target path will lead to errors with relative python executable
             target = os.path.abspath(target)
@@ -3464,7 +3464,7 @@ class Worker(ServiceCommandSection):
             os.environ['PYTHONPATH'] = os.pathsep.join(filter(None, (os.environ.get('PYTHONPATH', None), python_path)))
 
         # check if we want to run as another user, only supported on linux
-        # Note: User execution requires a virtual environment, so it's disabled when 
+        # Note: User execution requires a virtual environment, so it's disabled when
         # ENV_AGENT_SKIP_PYTHON_ENV_INSTALL is set
         if ENV_TASK_EXECUTE_AS_USER.get() and is_linux_platform() and not ENV_AGENT_SKIP_PYTHON_ENV_INSTALL.get():
             command, script_dir = self._run_as_user_patch(
@@ -3932,12 +3932,12 @@ class Worker(ServiceCommandSection):
                 print('Poetry Enabled: Ignoring requested python packages, using repository poetry lock file!')
                 api.install()
                 return api
-            
+
             print(f"Could not find pyproject.toml or poetry.lock file in {lockfile_path} \n")
         except Exception as ex:
             self.log.error("failed installing poetry requirements: {}".format(ex))
         return None
-    
+
     def _install_uv_requirements(self, repo_info, working_dir=None, cached_requirements=None):
         # type: (Optional[RepoInfo], Optional[str], Optional[Dict[str, list]]) -> Optional[UvAPI]
         if not repo_info:
@@ -4106,10 +4106,7 @@ class Worker(ServiceCommandSection):
                 return
 
         if not repo_info:
-            # if we had cached_requirements, it will install them (or raise exception if failed)
-            # if we had nothing to install at least output a warning.
-            if not self._install_patched_python_requirements(execution, package_api, cached_requirements):
-                self.log("no repository to install requirements from")
+            self.log("no repository to install requirements from")
             return
 
         repo_requirements_installed = False
@@ -4157,14 +4154,9 @@ class Worker(ServiceCommandSection):
             # mark as successful installation
             repo_requirements_installed = True
 
-        # if we still have not installed anything, see if we need to install something becuase we patched
+        # if we reached here without installing anything, then this is an error
         if not repo_requirements_installed:
-            repo_requirements_installed = self._install_patched_python_requirements(execution, package_api, cached_requirements)
-
-        # if we reached here without installing anything, and
-        # we failed installing from cached requirements, them this is an error
-        if not repo_requirements_installed:
-            print("Warning: installing NO task requirements or repository requirements")
+            raise ValueError("Failed installing repository requirements (and cached requirements were skipped)")
 
     def named_temporary_file(self, *args, **kwargs):
         kwargs.setdefault("delete", not self._session.debug_mode)
@@ -5621,8 +5613,11 @@ class Worker(ServiceCommandSection):
         if self._impersonate_as_task_owner:
             if not self._session.check_min_api_version("2.14"):
                 raise ValueError("Server does not support --use-owner-token option (incompatible API version)")
-            if self._session.feature_set == "basic":
-                raise ValueError("Server does not support --use-owner-token option")
+            # Note: upstream ClearML gates this behind `feature_set != "basic"`, assuming impersonation is an
+            # Enterprise-only server feature. In practice, the server-side authorization for impersonation
+            # (X-Clearml-Impersonate-As) is purely role-based (requires "system", "root" or "admin" role,
+            # see clearml-server's `validate_impersonation`) and works regardless of feature_set/license tier.
+            # We rely on the role check below instead of blocking on feature_set here.
 
             identity = self._session.get_decoded_token(self._session.token).get("identity", {})
             role = identity.get("role", None)
